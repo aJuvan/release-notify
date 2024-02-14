@@ -1,0 +1,13 @@
+core:
+  cron: "0 8-20 * * *"
+  location: "Europe/Ljubljana"
+notifications:
+  discord:
+  - name: "discord-monitoring"
+    webhook: "https://discord.com/api/webhooks/*******************/********************************************************************"
+repositories:
+- name: "aJuvan/release-notify"
+  prerelease: false
+  tag_regex: "v.*"
+  notification_channels:
+  - "discord-monitoring"
