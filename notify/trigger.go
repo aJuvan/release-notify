@@ -2,9 +2,10 @@ package notify
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"regexp"
+
+	"github.com/rs/zerolog/log"
 )
 
 type Release struct {
@@ -21,17 +22,20 @@ func (r Release) String() string {
 var lastReleases = map[string]Release{}
 
 func initLastReleases() {
+	log.Debug().Msg("Loading last releases")
 	for _, repository := range conf.Repositories {
+		log.Debug().Msgf("Loading last release for %s", repository.Name)
+
 		if repository.TagRegex != nil {
 			if _, err := regexp.Compile(*repository.TagRegex); err != nil {
-				fmt.Println("Error compiling regex for " + repository.Name)
+				log.Error().Err(err).Msg("Error compiling regex for " + repository.Name)
 				panic(err)
 			}
 		}
 
 		resp, err := http.Get("https://api.github.com/repos/" + repository.Name + "/releases/latest")
 		if err != nil {
-			fmt.Println("Error getting latest release for " + repository.Name)
+			log.Error().Err(err).Msg("Error getting latest release for " + repository.Name)
 			panic(err)
 		}
 		defer resp.Body.Close()
@@ -39,18 +43,20 @@ func initLastReleases() {
 		release := Release{}
 		err = json.NewDecoder(resp.Body).Decode(&release)
 		if err != nil {
-			fmt.Println("Error parsing latest release for " + repository.Name)
+			log.Error().Err(err).Msg("Error parsing latest release for " + repository.Name)
 			panic(err)
 		}
 
 		lastReleases[repository.Name] = release
 	}
+
 }
 
 func Trigger() {
 	var messages = map[string][]string{}
 
 	for _, repository := range conf.Repositories {
+		log.Debug().Msgf("Getting releases for %s", repository.Name)
 		var repoMessages = []string{}
 		var releases = getRepoReleases(repository.Name)
 		for _, release := range releases {
@@ -71,6 +77,7 @@ func Trigger() {
 				break
 			}
 
+			log.Info().Msgf("New release for %s: %s", repository.Name, release.TagName)
 			repoMessages = append(repoMessages, release.String())
 		}
 
@@ -90,10 +97,10 @@ func Trigger() {
 
 	for channel, msgs := range messages {
 		if len(msgs) > 0 {
+			log.Debug().Msgf("Sending %d messages to channel %s", len(msgs), channel)
 			err := channelsMap[channel].SendMessages(msgs)
 			if err != nil {
-				fmt.Println("Error while sending messages to " + channel)
-				fmt.Println(err)
+				log.Error().Err(err).Msg("Error while sending messages to " + channel)
 			}
 		}
 	}
@@ -102,7 +109,7 @@ func Trigger() {
 func getRepoReleases(name string) []Release {
 	resp, err := http.Get("https://api.github.com/repos/" + name + "/releases")
 	if err != nil {
-		fmt.Println("Error getting releases for " + name)
+		log.Error().Err(err).Msg("Error getting releases for " + name)
 		return nil
 	}
 	defer resp.Body.Close()
@@ -110,7 +117,7 @@ func getRepoReleases(name string) []Release {
 	releases := []Release{}
 	err = json.NewDecoder(resp.Body).Decode(&releases)
 	if err != nil {
-		fmt.Println("Error parsing releases for " + name)
+		log.Error().Err(err).Msg("Error parsing releases for " + name)
 		return nil
 	}
 

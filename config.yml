@@ -1,6 +1,10 @@
 core:
   cron: "0 8-20 * * *"
   location: "Europe/Ljubljana"
+  logging:
+    level: "info"
+    type: "console"
+    time_format: "rfc3339"
 notifications:
   discord:
   - name: "discord-monitoring"
